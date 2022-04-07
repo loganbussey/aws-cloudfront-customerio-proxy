@@ -1,0 +1,58 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation for creating a Customer.io HTTPS link tracking proxy'
+
+Parameters:
+  LinkTrackingSubdomain:
+    Type: String
+  TrackingDomain:
+    Type: String
+  ValidationMethod:
+    Type: String
+
+Resources:
+
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref LinkTrackingSubdomain
+      ValidationMethod: !Ref ValidationMethod
+
+  CustomerioProxy:
+    DependsOn: Certificate
+    Type: 'AWS::CloudFront::Distribution'
+    Properties:
+      DistributionConfig:
+        Aliases:
+          - !Ref LinkTrackingSubdomain
+        Comment: 'Customer.io HTTPS link tracking proxy'
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - 'DELETE'
+            - 'GET'
+            - 'HEAD'
+            - 'OPTIONS'
+            - 'PATCH'
+            - 'POST'
+            - 'PUT'
+          Compress: true
+          ForwardedValues:
+            Headers:
+              - '*'
+            QueryString: true
+          TargetOriginId: 'Customer.io Proxy'
+          ViewerProtocolPolicy: 'allow-all'
+        Enabled: true
+        HttpVersion: 'http2'
+        ViewerCertificate:
+          AcmCertificateArn: !Ref Certificate
+          MinimumProtocolVersion: 'TLSv1.2_2021'
+          SslSupportMethod: 'sni-only'
+        Origins:
+          -
+            Id: 'Customer.io Proxy'
+            DomainName: !Ref TrackingDomain
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: 'https-only'
+              OriginSSLProtocols:
+              - 'TLSv1.2'
